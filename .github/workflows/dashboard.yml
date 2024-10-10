@@ -1,40 +1,23 @@
-name: API Deployment
+name: Dashboard Deployment
 
 env:
   registryName: tz5zz64hiye3mcosureg.azurecr.io
-  repositoryName: techexcel/csapi
-  dockerFolderPath: ./src/ContosoSuitesWebAPI
+  repositoryName: techexcel/csdash
+  dockerFolderPath: ./src/ContosoSuitesDashboard
   tag: ${{github.run_number}}
 
 on:
   push:
     branches: [ main ]
-    paths: src/ContosoSuitesWebAPI/**
+    paths: src/ContosoSuitesDashboard/**
   pull_request:
     branches: [ main ]
-    paths: src/ContosoSuitesWebAPI/**
+    paths: src/ContosoSuitesDashboard/**
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0
-    
-    - name: Restore dependencies
-      run: dotnet restore ./src/ContosoSuitesWebAPI/ContosoSuitesWebAPI.csproj
-    - name: Build
-      run: dotnet build --no-restore ./src/ContosoSuitesWebAPI/ContosoSuitesWebAPI.csproj
-      
   dockerBuildPush:
     runs-on: ubuntu-latest
-    needs: build
 
     steps:
     - uses: actions/checkout@v4
@@ -52,7 +35,13 @@ jobs:
         password: ${{ secrets.ACR_PASSWORD }}
         # Log out from the Docker registry at the end of a job
         logout: true
-        
+    
+    - name: Create Secrets File
+      run: echo "$STREAMLIT_SECRETS" > ./src/ContosoSuitesDashboard/.streamlit/secrets.toml
+      shell: bash
+      env:
+          STREAMLIT_SECRETS: ${{ secrets.STREAMLIT_SECRETS }}
+
     - name: Docker Build
       run: docker build -t $registryName/$repositoryName:$tag --build-arg build_version=$tag $dockerFolderPath
       
@@ -65,7 +54,7 @@ jobs:
     needs: dockerBuildPush
     environment:
       name: prod
-      url: https://tz5zz64hiye3m-api.azurewebsites.net/
+      url: https://tz5zz64hiye3m-dash.azurewebsites.net/
     
     steps:
     - uses: actions/checkout@v4
@@ -77,5 +66,5 @@ jobs:
 
     - uses: azure/webapps-deploy@v2
       with:
-        app-name: 'tz5zz64hiye3m-api'
-        images: tz5zz64hiye3mcosureg.azurecr.io/techexcel/csapi:${{github.run_number}}
+        app-name: 'tz5zz64hiye3m-dash'
+        images: tz5zz64hiye3mcosureg.azurecr.io/techexcel/csdash:${{github.run_number}}
